@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aera Metronome Pro - Deluxe Symphony</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%);
+            --bg-pattern: radial-gradient(rgba(29, 185, 84, 0.08) 1.5px, transparent 1.5px);
+            --panel-bg: rgba(255, 255, 255, 0.45);
+            --panel-border: rgba(255, 255, 255, 0.7);
+            --card-bg: rgba(255, 255, 255, 0.6);
+            --card-border: rgba(255, 255, 255, 0.8);
+            --text-main: #111827;    
+            --text-dim: #4b5563;     
+            --accent-green: #1db954; 
+            --shadow-panel: rgba(31, 41, 55, 0.08);
+            --beat-duration: 500ms;
+        }
+
+        body.dark-theme {
+            --bg-gradient: linear-gradient(135deg, #09120e 0%, #060b11 100%);
+            --bg-pattern: radial-gradient(rgba(255, 255, 255, 0.03) 1.2px, transparent 1.2px);
+            --panel-bg: rgba(18, 30, 23, 0.6);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --card-bg: rgba(0, 0, 0, 0.35);
+            --card-border: rgba(255, 255, 255, 0.05);
+            --text-main: #f3f4f6;    
+            --text-dim: #9ca3af;     
+            --accent-green: #1ed760; 
+            --shadow-panel: rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            background: var(--bg-gradient); background-size: 200% 200%;
+            color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 0; display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; overflow-x: hidden; position: relative; transition: background 0.5s ease, color 0.3s ease;
+        }
+        
+        .app-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: var(--bg-pattern); background-size: 30px 30px; 
+            z-index: -10; pointer-events: none;
+        }
+
+        /* --- 1. MÀN HÌNH INTRO 3D --- */
+        .intro-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-gradient); z-index: 9999; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: all 0.8s cubic-bezier(0.65, 0, 0.35, 1);
+        }
+        .intro-overlay.fade-out { opacity: 0; visibility: hidden; transform: scale(1.15); pointer-events: none; }
+        .intro-vinyl {
+            width: 140px; height: 140px; border-radius: 50%;
+            background: radial-gradient(circle, #222 25%, #111 26%, #333 40%, #111 70%);
+            border: 4px solid var(--accent-green);
+            box-shadow: 0 10px 40px rgba(29, 185, 84, 0.4);
+            animation: spinVinyl 3s linear infinite, entry3D 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes spinVinyl { 100% { transform: rotate(360deg); } }
+        @keyframes entry3D {
+            0% { transform: rotateY(-90deg) rotateX(45deg) scale(0.3); opacity: 0; }
+            100% { transform: rotateY(0deg) rotateX(0deg) scale(1); opacity: 1; }
+        }
+        .intro-title {
+            color: var(--text-main); font-size: 26px; font-weight: 900; letter-spacing: 4px;
+            text-transform: uppercase; margin-top: 20px; opacity: 0;
+            animation: fadeInText 0.5s ease forwards 0.5s;
+        }
+        @keyframes fadeInText { 100% { opacity: 1; } }
+
+        /* --- TRẠNG THÁI KẾT NỐI ESP --- */
+        .connection-status {
+            position: fixed; top: 20px; left: 20px; z-index: 100;
+            background: var(--panel-bg); border: 1px solid var(--panel-border);
+            padding: 8px 16px; border-radius: 20px; display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: bold; box-shadow: 0 4px 15px var(--shadow-panel);
+            backdrop-filter: blur(10px); color: var(--text-main);
+        }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: #ff9800; box-shadow: 0 0 8px #ff9800; animation: blink 1.5s infinite;}
+        .status-dot.connected { background-color: #1db954; box-shadow: 0 0 8px #1db954; animation: none;}
+        .status-dot.disconnected { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; animation: none;}
+        .ping-text { font-family: monospace; font-size: 12px; color: var(--text-dim);}
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* --- THEME TOGGLE --- */
+        .theme-toggle-btn {
+            position: fixed; top: 20px; right: 20px; z-index: 100;
+            background: var(--panel-bg); border: 1px solid var(--panel-border);
+            width: 45px; height: 45px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center;
+            font-size: 20px; box-shadow: 0 4px 15px var(--shadow-panel); backdrop-filter: blur(10px); transition: transform 0.2s;
+        }
+        .theme-toggle-btn:hover { transform: scale(1.08); }
+
+        /* --- KHUÔNG NHẠC VÀ NỐT NHẠC (ĐẦY MÀN HÌNH) --- */
+        .stave-wrapper { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -3; pointer-events: none; overflow: hidden; }
+        
+        .stave {
+            position: absolute; width: 150vw; left: -25vw; height: 48px;
+            background: repeating-linear-gradient(to bottom, var(--accent-green) 0, var(--accent-green) 1px, transparent 1px, transparent 12px);
+            opacity: 0.15;
+        }
+        .stave::before {
+            content: '𝄞'; position: absolute; left: 20vw; top: -35px;
+            font-size: 80px; color: var(--accent-green); opacity: 0.8;
+        }
+        .stave1 { top: 25%; animation: sway1 25s ease-in-out infinite alternate; }
+        .stave2 { top: 65%; animation: sway2 30s ease-in-out infinite alternate-reverse; }
+
+        @keyframes sway1 { 0% { transform: rotate(-12deg) translateY(-30px); } 100% { transform: rotate(-8deg) translateY(30px); } }
+        @keyframes sway2 { 0% { transform: rotate(10deg) translateY(-30px); } 100% { transform: rotate(15deg) translateY(30px); } }
+
+        /* Nốt nhạc bay sinh ra từ JS */
+        #ambient-notes-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; overflow: hidden;}
+        .music-note {
+            position: absolute; bottom: -100px; color: var(--accent-green);
+            filter: drop-shadow(0 0 6px rgba(29,185,84,0.5));
+            animation: floatNote linear infinite; will-change: transform, opacity;
+        }
+        @keyframes floatNote {
+            0% { transform: translateY(0) rotate(0deg) scale(0.8); opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { transform: translateY(-120vh) rotate(360deg) scale(1.2); opacity: 0; }
+        }
+
+        /* --- CỘT BÀI HÁT CHẠY NỀN --- */
+        .floating-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -2; pointer-events: none; display: flex; justify-content: space-around; }
+        .bg-column { width: 200px; height: 100%; overflow: hidden; position: relative; }
+        .column-track { display: flex; flex-direction: column; gap: 20px; position: absolute; width: 100%; will-change: transform; }
+        .track-up { animation: scrollUp 30s linear infinite; }
+        .track-down { animation: scrollDown 35s linear infinite; }
+        @keyframes scrollUp { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(0, -50%, 0); } }
+        @keyframes scrollDown { 0% { transform: translate3d(0, -50%, 0); } 100% { transform: translate3d(0, 0, 0); } }
+        .mock-player {
+            width: 100%; background: var(--panel-bg); border-radius: 16px; padding: 12px;
+            box-shadow: 0 4px 15px var(--shadow-panel); border: 1px solid var(--panel-border);
+            display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; opacity: 0.45; backdrop-filter: blur(4px);
+        }
+        .mock-cover { width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; }
+        .mock-title { color: var(--text-main); font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; }
+        .mock-artist { color: var(--text-dim); font-size: 11px; }
+
+        /* --- BỐ CỤC CHÍNH --- */
+        .main-app-wrapper { display: flex; gap: 25px; align-items: flex-start; max-width: 800px; width: 100%; padding: 80px 20px 40px 20px; box-sizing: border-box; z-index: 10; flex-wrap: wrap; justify-content: center; }
+        .glass-panel { flex: 1; min-width: 340px; max-width: 440px; background: var(--panel-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid var(--panel-border); border-radius: 30px; padding: 25px 20px; box-shadow: 0 15px 40px var(--shadow-panel); box-sizing: border-box; }
+        
+        .history-panel { width: 280px; background: var(--panel-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid var(--panel-border); border-radius: 25px; padding: 20px 15px; box-shadow: 0 15px 40px var(--shadow-panel); box-sizing: border-box; max-height: 580px; display: flex; flex-direction: column; }
+        .history-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; margin-top: 10px; flex-grow: 1; }
+        .history-item { display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; cursor: pointer; transition: transform 0.2s, background 0.2s; animation: slideInItem 0.3s ease-out; }
+        .history-item:hover { transform: translateX(3px); background: rgba(255,255,255,0.8); }
+        body.dark-theme .history-item:hover { background: rgba(255,255,255,0.1); }
+        .history-item img { width: 35px; height: 35px; border-radius: 6px; object-fit: cover; }
+        .history-info { display: flex; flex-direction: column; overflow: hidden; }
+        .history-title { font-size: 12px; font-weight: bold; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .history-artist { font-size: 10px; color: var(--text-dim); }
+        @keyframes slideInItem { 0% { opacity: 0; transform: translateX(15px); } 100% { opacity: 1; transform: translateX(0); } }
+
+        /* --- TÌM KIẾM --- */
+        .search-wrapper { position: relative; margin-bottom: 20px; z-index: 20; }
+        .search-wrapper input { width: 100%; padding: 14px 40px 14px 20px; border-radius: 20px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text-main); font-size: 14px; box-sizing: border-box; outline: none; }
+        .search-wrapper input:focus { border-color: var(--accent-green); background: #fff; box-shadow: 0 0 10px rgba(29,185,84,0.15); }
+        body.dark-theme .search-wrapper input:focus { background: rgba(0,0,0,0.4); }
+        #clear-search { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-dim); display: none; font-size: 18px; }
+        #suggestions { position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border-radius: 16px; border: 1px solid var(--panel-border); margin-top: 8px; max-height: 220px; overflow-y: auto; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1); backdrop-filter: blur(15px); }
+        .suggestion-item { display: flex; align-items: center; padding: 12px 15px; cursor: pointer; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .suggestion-item:hover { background: rgba(255,255,255,0.8); }
+        body.dark-theme .suggestion-item:hover { background: rgba(255,255,255,0.05); }
+        .suggestion-item img { width: 40px; height: 40px; border-radius: 8px; margin-right: 15px; object-fit: cover;}
+        .suggestion-title { font-weight: 600; font-size: 14px; display: block; margin-bottom: 3px; color: var(--text-main);}
+        .suggestion-artist { font-size: 12px; color: var(--text-dim); }
+
+        /* --- THẺ BÀI HÁT (CÓ NÚT PLAY PREVIEW) --- */
+        .selected-song-card { display: flex; align-items: center; justify-content: flex-start; background: var(--card-bg); padding: 12px 15px; border-radius: 20px; border: 1px solid var(--card-border); margin-bottom: 15px; }
+        .album-art-spin { width: 50px; height: 50px; border-radius: 50%; background-color: #ddd; background-size: cover; background-position: center; border: 2px solid var(--accent-green); animation: spin 5s linear infinite; margin-right: 15px; flex-shrink: 0; display: none; box-shadow: 0 0 10px rgba(29, 185, 84, 0.3); }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .song-info-text { display: flex; flex-direction: column; overflow: hidden; flex-grow: 1;}
+        .song-title-display { font-size: 15px; font-weight: 700; color: var(--text-main); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;}
+        .song-artist-display { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+        
+        .preview-btn {
+            width: 32px; height: 32px; border-radius: 50%; background: var(--text-dim); color: white; border: none;
+            display: flex; justify-content: center; align-items: center; font-size: 14px; margin-left: 8px; flex-shrink: 0;
+            opacity: 0.3; pointer-events: none; transition: all 0.3s; padding-left: 3px; box-sizing: border-box;
+        }
+        .preview-btn.active { background: var(--accent-green); opacity: 1; pointer-events: auto; cursor: pointer; box-shadow: 0 4px 10px rgba(29, 185, 84, 0.4); }
+        .preview-btn.active:hover { transform: scale(1.1); }
+        .preview-btn.active:active { transform: scale(0.9); }
+
+        /* --- SÓNG NHẠC --- */
+        .visualizer { display: flex; align-items: flex-end; justify-content: center; gap: 6px; height: 35px; margin-bottom: 10px; }
+        .bar { width: 8px; height: 100%; background: var(--accent-green); border-radius: 4px 4px 0 0; transform-origin: bottom; animation: pulseBar var(--beat-duration) ease-out infinite; }
+        @keyframes pulseBar { 0% { transform: scaleY(0.1); } 20% { transform: scaleY(1); } 100% { transform: scaleY(0.1); } }
+        .bar:nth-child(1) { animation-delay: 0.0s; } .bar:nth-child(2) { animation-delay: 0.1s; } .bar:nth-child(3) { animation-delay: 0.2s; } .bar:nth-child(4) { animation-delay: 0.15s; } .bar:nth-child(5) { animation-delay: 0.05s; }
+
+        /* --- KHU VỰC BPM & CONTROLS --- */
+        .bpm-header { display: flex; justify-content: center; margin-bottom: -5px; }
+        .target-bpm { color: var(--text-main); font-size: 12px; font-weight: 600; background: var(--card-bg); border: 1px solid var(--card-border); padding: 4px 12px; border-radius: 12px;}
+        .bpm-huge { font-size: 85px; font-weight: 900; text-align: center; color: var(--text-main); line-height: 1; margin: 0 0 10px 0; transition: color 0.3s; }
+        .mode-switch-container { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 20px; font-size: 11px; color: var(--text-dim); font-weight: bold; letter-spacing: 1px; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.1); border: 1px solid var(--card-border); transition: .4s; border-radius: 34px; }
+        body.dark-theme .slider { background-color: rgba(255,255,255,0.1); }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: #fff; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.15);}
+        input:checked + .slider { background-color: var(--accent-green); border-color: var(--accent-green); }
+        input:checked + .slider:before { transform: translateX(22px); }
+        .mode-label.active { color: var(--accent-green); }
+
+        .manual-controls { display: flex; justify-content: center; align-items: center; gap: 12px; background: var(--card-bg); padding: 12px; border-radius: 20px; margin-bottom: 20px; border: 1px solid var(--card-border); transition: opacity 0.3s; }
+        .btn-circle { background: var(--panel-bg); border: 1px solid var(--panel-border); color: var(--text-main); width: 38px; height: 38px; border-radius: 50%; font-size: 20px; cursor: pointer; transition: 0.2s; }
+        .btn-circle:hover { background: #fff; transform: scale(1.05);}
+        body.dark-theme .btn-circle:hover { background: rgba(255,255,255,0.1); }
+        #bpm-input { width: 60px; padding: 8px; border-radius: 12px; border: 1px solid var(--panel-border); background: var(--panel-bg); color: var(--text-main); text-align: center; font-size: 16px; font-weight: bold; outline: none; }
+        .btn-set { padding: 9px 16px; background: var(--accent-green); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
+
+        .tap-btn { width: 100%; padding: 12px; background: var(--card-bg); border: 2px dashed var(--accent-green); color: var(--text-main); border-radius: 16px; font-weight: bold; cursor: pointer; margin-bottom: 20px; transition: 0.2s; font-size: 13px; }
+        .tap-btn:active { background: rgba(29, 185, 84, 0.1); }
+        .section-label { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;}
+        select { width: 100%; padding: 12px; background: var(--card-bg); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 16px; margin-bottom: 20px; outline: none; font-size: 14px; }
+        
+        .action-btns { display: flex; gap: 15px; }
+        .btn-main { flex: 1; padding: 14px; border: none; border-radius: 16px; font-weight: bold; font-size: 15px; cursor: pointer; transition: 0.2s; }
+        .btn-start { background: var(--accent-green); color: white; box-shadow: 0 4px 15px rgba(29, 185, 84, 0.25);}
+        .btn-stop { background: var(--card-bg); color: var(--text-main); border: 1px solid var(--card-border); }
+        .btn-main:active { transform: scale(0.96); }
+    </style>
+</head>
+<body class="dark-theme">
+
+    <div class="app-background"></div>
+
+    <!-- MÀN HÌNH INTRO 3D -->
+    <div class="intro-overlay" id="intro-screen">
+        <div class="intro-vinyl"></div>
+        <div class="intro-title">Aera Metronome</div>
+    </div>
+
+    <!-- HIỂN THỊ PING / KẾT NỐI -->
+    <div class="connection-status">
+        <div class="status-dot" id="esp-dot"></div>
+        <span id="esp-text">Checking...</span>
+        <span class="ping-text" id="esp-ping"></span>
+    </div>
+
+    <!-- ĐỔI THEME -->
+    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Đổi giao diện">🌓</button>
+
+    <!-- KHUÔNG NHẠC (BACKGROUND) -->
+    <div class="stave-wrapper">
+        <div class="stave stave1"></div>
+        <div class="stave stave2"></div>
+    </div>
+
+    <!-- NỐT NHẠC BAY (SẼ ĐƯỢC JAVASCRIPT BƠM VÀO ĐÂY) -->
+    <div id="ambient-notes-container"></div>
+
+    <!-- CỘT BÀI HÁT CHẠY NỀN VÔ TẬN -->
+    <div class="floating-bg">
+        <div class="bg-column">
+            <div class="column-track track-up">
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/vi/c/c4/Savage_-_aespa%2C_album_cover.jpg" class="mock-cover"><span class="mock-title">Savage</span><span class="mock-artist">aespa</span></div>
+                <div class="mock-player"><img src="https://images.genius.com/5294451a13a847e4278e9f0472ef5d39.1000x1000x1.png" class="mock-cover"><span class="mock-title">Imaginary friend</span><span class="mock-artist">ITZY</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zmdcdn.me/w256_r1x1_jpeg/cover/c/4/f/6/c4f66ff7f40bcf047cae38b73278f9f0.jpg" class="mock-cover"><span class="mock-title">Xích Thêm Chút</span><span class="mock-artist">Rapital</span></div>
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/vi/b/ba/S%C6%A1n_T%C3%B9ng_M-TP_-_%C3%82m_th%E1%BA%A7m_b%C3%AAn_em.jpg" class="mock-cover"><span class="mock-title">Âm Thầm Bên Em</span><span class="mock-artist">Sơn Tùng M-TP</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zadn.vn/w600_r1x1_jpeg/cover/f/6/8/9/f6894526d7a599dd668ebc4704ffc9db.jpg" class="mock-cover"><span class="mock-title">Em Không Khóc</span><span class="mock-artist">Vũ Phụng Tiên</span></div>
+                <!-- Nhân bản -->
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/vi/c/c4/Savage_-_aespa%2C_album_cover.jpg" class="mock-cover"><span class="mock-title">Savage</span><span class="mock-artist">aespa</span></div>
+                <div class="mock-player"><img src="https://images.genius.com/5294451a13a847e4278e9f0472ef5d39.1000x1000x1.png" class="mock-cover"><span class="mock-title">Imaginary friend</span><span class="mock-artist">ITZY</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zmdcdn.me/w256_r1x1_jpeg/cover/c/4/f/6/c4f66ff7f40bcf047cae38b73278f9f0.jpg" class="mock-cover"><span class="mock-title">Xích Thêm Chút</span><span class="mock-artist">Rapital</span></div>
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/vi/b/ba/S%C6%A1n_T%C3%B9ng_M-TP_-_%C3%82m_th%E1%BA%A7m_b%C3%AAn_em.jpg" class="mock-cover"><span class="mock-title">Âm Thầm Bên Em</span><span class="mock-artist">Sơn Tùng M-TP</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zadn.vn/w600_r1x1_jpeg/cover/f/6/8/9/f6894526d7a599dd668ebc4704ffc9db.jpg" class="mock-cover"><span class="mock-title">Em Không Khóc</span><span class="mock-artist">Vũ Phụng Tiên</span></div>
+            </div>
+        </div>
+        <div class="bg-column">
+            <div class="column-track track-down">
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/b/b6/IU_Palette_final.jpg" class="mock-cover"><span class="mock-title">Palette</span><span class="mock-artist">IU</span></div>
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/e/e6/The_Weeknd_-_Blinding_Lights.png" class="mock-cover"><span class="mock-title">Blinding Lights</span><span class="mock-artist">The Weeknd</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zmdcdn.me/w256_r1x1_jpeg/cover/1/2/1/a/121acc767e18bbfc93257b246558d659.jpg" class="mock-cover"><span class="mock-title">Love me like this</span><span class="mock-artist">NMIXX</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zadn.vn/w600_r1x1_jpeg/cover/5/d/9/1/5d910778bd8de02f62e133bd729d56ff.jpg" class="mock-cover"><span class="mock-title">Magnetic</span><span class="mock-artist">ILLIT</span></div>
+                <!-- Nhân bản -->
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/b/b6/IU_Palette_final.jpg" class="mock-cover"><span class="mock-title">Palette</span><span class="mock-artist">IU</span></div>
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/e/e6/The_Weeknd_-_Blinding_Lights.png" class="mock-cover"><span class="mock-title">Blinding Lights</span><span class="mock-artist">The Weeknd</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zmdcdn.me/w256_r1x1_jpeg/cover/1/2/1/a/121acc767e18bbfc93257b246558d659.jpg" class="mock-cover"><span class="mock-title">Love me like this</span><span class="mock-artist">NMIXX</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zadn.vn/w600_r1x1_jpeg/cover/5/d/9/1/5d910778bd8de02f62e133bd729d56ff.jpg" class="mock-cover"><span class="mock-title">Magnetic</span><span class="mock-artist">ILLIT</span></div>
+            </div>
+        </div>
+        <div class="bg-column">
+            <div class="column-track track-up">
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/c/c4/Taylor_Swift_-_Shake_It_Off.png" class="mock-cover"><span class="mock-title">Shake It Off</span><span class="mock-artist">Taylor Swift</span></div>
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/3/33/Billie_Eilish_-_Bad_Guy.png" class="mock-cover"><span class="mock-title">Bad Guy</span><span class="mock-artist">Billie Eilish</span></div>
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/b/b4/Shape_Of_You_%28Official_Single_Cover%29_by_Ed_Sheeran.png" class="mock-cover"><span class="mock-title">Shape of You</span><span class="mock-artist">Ed Sheeran</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zadn.vn/w600_r1x1_jpeg/covers/8/4/84ae9f554c3ba023f4a4cfcf3abf8461_1504989277.jpg" class="mock-cover"><span class="mock-title">Yêu 5</span><span class="mock-artist">Rhymastic</span></div>
+                <!-- Nhân bản -->
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/c/c4/Taylor_Swift_-_Shake_It_Off.png" class="mock-cover"><span class="mock-title">Shake It Off</span><span class="mock-artist">Taylor Swift</span></div>
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/3/33/Billie_Eilish_-_Bad_Guy.png" class="mock-cover"><span class="mock-title">Bad Guy</span><span class="mock-artist">Billie Eilish</span></div>
+                <div class="mock-player"><img src="https://upload.wikimedia.org/wikipedia/en/b/b4/Shape_Of_You_%28Official_Single_Cover%29_by_Ed_Sheeran.png" class="mock-cover"><span class="mock-title">Shape of You</span><span class="mock-artist">Ed Sheeran</span></div>
+                <div class="mock-player"><img src="https://photo-resize-zmp3.zadn.vn/w600_r1x1_jpeg/covers/8/4/84ae9f554c3ba023f4a4cfcf3abf8461_1504989277.jpg" class="mock-cover"><span class="mock-title">Yêu 5</span><span class="mock-artist">Rhymastic</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BẢNG ĐIỀU KHIỂN & SIDEBAR -->
+    <div class="main-app-wrapper">
+        
+        <!-- MAIN PANEL -->
+        <div class="glass-panel">
+            <div class="search-wrapper">
+                <input type="text" id="search-box" placeholder="🔍 Tìm bài hát trên Spotify..." oninput="onSearchInput()">
+                <span id="clear-search" onclick="clearSearch()">✖</span>
+                <div id="suggestions"></div>
+            </div>
+
+            <div class="selected-song-card">
+                <div id="album-art" class="album-art-spin"></div>
+                <div class="song-info-text">
+                    <div class="song-title-display" id="song-title">Aera Metronome Pro</div>
+                    <div class="song-artist-display" id="song-artist">Hãy chọn một bài hát để khởi động</div>
+                </div>
+                <!-- NÚT PHÁT NHẠC MINI (AUDIO PREVIEW) -->
+                <button class="preview-btn" id="preview-btn" onclick="togglePreview()" title="Chưa có nhạc nghe thử">▶</button>
+            </div>
+            
+            <audio id="audio-preview" src=""></audio>
+
+            <div class="visualizer">
+                <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+            </div>
+
+            <div class="bpm-header"><span class="target-bpm" id="target-bpm-display" style="visibility: hidden;">♫ Nhịp bài gốc: <span id="target-bpm-value">0</span> BPM</span></div>
+            <div class="bpm-huge" id="bpm-display">120</div>
+
+            <div class="mode-switch-container">
+                <span class="mode-label active" id="label-manual">THỦ CÔNG</span>
+                <label class="switch"><input type="checkbox" id="mode-toggle" onchange="toggleMode()"><span class="slider"></span></label>
+                <span class="mode-label" id="label-auto">TỰ ĐỘNG</span>
+            </div>
+
+            <div class="manual-controls" id="manual-section">
+                <button class="btn-circle" onclick="changeBPM(-1)">-</button>
+                <input type="number" id="bpm-input" placeholder="120" onkeypress="handleEnter(event)">
+                <button class="btn-set" onclick="applyManualBPM()">SET</button>
+                <button class="btn-circle" onclick="changeBPM(1)">+</button>
+            </div>
+
+            <button class="tap-btn" onclick="tapTempo()">🖐 TAP TEMPO KHỚP NHỊP</button>
+
+            <div class="section-label">LOẠI NHỊP (TIME SIGNATURE)</div>
+            <select id="beat-select" onchange="sendConfig()">
+                <option value="1">1/4 (Đếm phách đều)</option>
+                <option value="2">2/4 (Pop, Rock, March)</option>
+                <option value="3">3/4 (Waltz, Blues)</option>
+                <option value="4" selected>4/4 (Thông dụng nhất)</option>
+                <option value="6">6/8 (Slow Rock, Ballad)</option>
+            </select>
+
+            <div class="action-btns">
+                <button class="btn-main btn-start" onclick="sendStart()">🚀 BẮT ĐẦU</button>
+                <button class="btn-main btn-stop" onclick="sendCommand('<STOP>')">⏹ DỪNG</button>
+            </div>
+        </div>
+
+        <!-- SIDEBAR LỊCH SỬ BÊN PHẢI -->
+        <div class="history-panel">
+            <div class="section-label" style="font-weight: bold; border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;">🕒 Lịch sử chọn bài</div>
+            <div class="history-list" id="history-container">
+                <div style="font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 30px;" id="history-empty-text">Chưa chọn bài hát nào</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let currentBPM = 120;
+        let fetchedBPM = 0;
+        let tapTimes =[];
+        let timeoutId;
+        let songHistoryList =[]; 
+
+        // --- HÀM TẠO 60 NỐT NHẠC BAY LƠ LỬNG BẰNG JAVASCRIPT ---
+        function createAmbientNotes() {
+            const container = document.getElementById('ambient-notes-container');
+            const symbols =['🎵', '🎶', '♭', '♯', '𝄢', '𝅘𝅥𝅮', '𝅘𝅥𝅮']; // Các icon âm nhạc
+            const numNotes = 60; // Số lượng nốt nhạc phủ kín màn hình
+            
+            for (let i = 0; i < numNotes; i++) {
+                const note = document.createElement('div');
+                note.className = 'music-note';
+                note.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+                
+                // Trộn vị trí, tốc độ, và kích thước ngẫu nhiên
+                const left = Math.random() * 100; // Trải đều từ 0 đến 100% chiều ngang
+                const duration = 15 + Math.random() * 25; // Thời gian bay từ 15 - 40 giây
+                const delay = -(Math.random() * 40); // Bắt đầu bay ngay lập tức ở các vị trí khác nhau
+                const fontSize = 15 + Math.random() * 35; // Kích thước nốt to nhỏ từ 15-50px
+                
+                note.style.left = `${left}vw`;
+                note.style.animationDuration = `${duration}s`;
+                note.style.animationDelay = `${delay}s`;
+                note.style.fontSize = `${fontSize}px`;
+                
+                container.appendChild(note);
+            }
+        }
+
+        // --- XỬ LÝ ẨN MÀN HÌNH INTRO 3D VÀ BƠM NỐT NHẠC ---
+        window.addEventListener('DOMContentLoaded', () => {
+            createAmbientNotes(); // Kích hoạt tạo nốt nhạc ngay khi load web
+            setTimeout(() => {
+                const splash = document.getElementById('intro-screen');
+                if(splash) splash.classList.add('fade-out');
+            }, 1800);
+        });
+
+        // --- PING TỚI ESP ĐỂ KIỂM TRA ĐỘ TRỄ ---
+        function checkPing() {
+            fetch('/ping_esp')
+                .then(response => response.json())
+                .then(data => {
+                    const dot = document.getElementById('esp-dot');
+                    const text = document.getElementById('esp-text');
+                    const pingText = document.getElementById('esp-ping');
+                    
+                    dot.className = 'status-dot'; // Reset
+                    if(data.status === 'connected') {
+                        dot.classList.add('connected');
+                        text.innerText = 'Connected';
+                        pingText.innerText = data.ping + 'ms';
+                    } else {
+                        dot.classList.add('disconnected');
+                        text.innerText = 'Disconnected';
+                        pingText.innerText = '';
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('esp-dot').className = 'status-dot disconnected';
+                    document.getElementById('esp-text').innerText = 'Backend Offline';
+                    document.getElementById('esp-ping').innerText = '';
+                });
+        }
+        setInterval(checkPing, 3000);
+        checkPing();
+
+        // --- PREVIEW AUDIO (NGHE THỬ SPOTIFY) ---
+        const audioPreview = document.getElementById('audio-preview');
+        const previewBtn = document.getElementById('preview-btn');
+        
+        function togglePreview() {
+            if(!previewBtn.classList.contains('active')) return; // Không có nhạc thì không cho bấm
+
+            if (audioPreview.paused) {
+                audioPreview.play();
+                previewBtn.innerText = '⏸';
+            } else {
+                audioPreview.pause();
+                previewBtn.innerText = '▶';
+            }
+        }
+        audioPreview.onended = () => { previewBtn.innerText = '▶'; };
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            updateBPMUI(); 
+        }
+
+        function syncVisualizer() {
+            const beatDurationMs = Math.round(60000 / currentBPM);
+            document.documentElement.style.setProperty('--beat-duration', `${beatDurationMs}ms`);
+        }
+
+        function addToHistory(name, artist, imgUrl) {
+            if (songHistoryList.length > 0 && songHistoryList[0].name === name) return;
+            songHistoryList.unshift({ name, artist, imgUrl });
+            if (songHistoryList.length > 6) songHistoryList.pop(); 
+
+            const container = document.getElementById('history-container');
+            const emptyText = document.getElementById('history-empty-text');
+            if (emptyText) emptyText.remove();
+
+            container.innerHTML = '';
+            songHistoryList.forEach(track => {
+                const safeName = track.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const safeArtist = track.artist.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                container.innerHTML += `
+                    <div class="history-item" onclick="selectSong('${safeName}', '${safeArtist}', '${track.imgUrl}')">
+                        <img src="${track.imgUrl || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100'}" alt="cover">
+                        <div class="history-info">
+                            <span class="history-title">${track.name}</span>
+                            <span class="history-artist">${track.artist}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function toggleMode() {
+            const isAuto = document.getElementById('mode-toggle').checked;
+            const manualSection = document.getElementById('manual-section');
+            document.getElementById('label-auto').classList.toggle('active', isAuto);
+            document.getElementById('label-manual').classList.toggle('active', !isAuto);
+
+            if (isAuto) {
+                manualSection.style.opacity = '0.4';
+                manualSection.style.pointerEvents = 'none';
+                if (fetchedBPM > 0) { currentBPM = fetchedBPM; updateBPMUI(); sendCommand(`<BPM:${currentBPM}>`); }
+            } else {
+                manualSection.style.opacity = '1';
+                manualSection.style.pointerEvents = 'auto';
+            }
+        }
+
+        function onSearchInput() {
+            const query = document.getElementById('search-box').value;
+            document.getElementById('clear-search').style.display = query.length > 0 ? "block" : "none";
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(fetchSuggestions, 400);
+        }
+
+        function clearSearch() { document.getElementById('search-box').value = ""; document.getElementById('clear-search').style.display = "none"; document.getElementById('suggestions').style.display = "none"; }
+
+        async function fetchSuggestions() {
+            const query = document.getElementById('search-box').value;
+            const suggBox = document.getElementById('suggestions');
+            if(query.length < 2) { suggBox.style.display = 'none'; return; }
+            const res = await fetch(`/autocomplete?q=${query}`);
+            const data = await res.json();
+            suggBox.innerHTML = '';
+            if(data.length > 0) {
+                data.forEach(track => {
+                    const safeName = track.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    const safeArtist = track.artist.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    suggBox.innerHTML += `<div class="suggestion-item" onclick="selectSong('${safeName}', '${safeArtist}', '${track.image}')"><img src="${track.image}"><div><span class="suggestion-title">${track.name}</span><span class="suggestion-artist">${track.artist}</span></div></div>`;
+                });
+                suggBox.style.display = 'block';
+            }
+        }
+
+        async function selectSong(name, artist, imgUrl) {
+            document.getElementById('search-box').value = ""; 
+            document.getElementById('suggestions').style.display = 'none';
+            document.getElementById('clear-search').style.display = 'none';
+
+            document.getElementById('song-title').innerText = name;
+            document.getElementById('song-artist').innerText = artist;
+            const albumArt = document.getElementById('album-art');
+            if (imgUrl) { albumArt.style.backgroundImage = `url('${imgUrl}')`; albumArt.style.display = "block"; }
+            addToHistory(name, artist, imgUrl);
+
+            // Xóa state của bài nhạc cũ
+            audioPreview.pause();
+            audioPreview.src = "";
+            previewBtn.innerText = '▶';
+            previewBtn.classList.remove('active');
+            previewBtn.title = 'Đang tải hoặc không có nhạc nghe thử...';
+
+            const res = await fetch(`/search?q=${name} ${artist}`);
+            const data = await res.json();
+            
+            if(!data.error) {
+                // Check xem bài này Spotify có cho preview không
+                if (data.preview_url) {
+                    audioPreview.src = data.preview_url;
+                    previewBtn.classList.add('active'); // Mở khóa nút Play
+                    previewBtn.title = 'Nghe thử đoạn nhạc';
+                } else {
+                    previewBtn.title = 'Bài hát này không hỗ trợ nghe thử từ Spotify';
+                }
+
+                if(data.bpm) {
+                    fetchedBPM = data.bpm;
+                    document.getElementById('target-bpm-value').innerText = fetchedBPM;
+                    document.getElementById('target-bpm-display').style.visibility = 'visible';
+
+                    if (document.getElementById('mode-toggle').checked) {
+                        currentBPM = fetchedBPM;
+                        updateBPMUI();
+                        sendCommand(`<BPM:${currentBPM}>`);
+                    }
+                }
+            }
+        }
+
+        function updateBPMUI() {
+            document.getElementById('bpm-display').innerText = currentBPM;
+            document.getElementById('bpm-input').value = currentBPM;
+            const isDark = document.body.classList.contains('dark-theme');
+            if (fetchedBPM > 0 && currentBPM === fetchedBPM) {
+                document.getElementById('bpm-display').style.color = "var(--accent-green)";
+            } else {
+                document.getElementById('bpm-display').style.color = isDark ? "#fff" : "#111827";
+            }
+            syncVisualizer();
+        }
+
+        function changeBPM(amount) {
+            if(document.getElementById('mode-toggle').checked) return;
+            let newBpm = currentBPM + amount;
+            if (newBpm >= 30 && newBpm <= 250) { currentBPM = newBpm; updateBPMUI(); sendCommand(`<BPM:${currentBPM}>`); }
+        }
+
+        function applyManualBPM() {
+            if(document.getElementById('mode-toggle').checked) return;
+            let val = parseInt(document.getElementById('bpm-input').value);
+            if (val >= 30 && val <= 250) { currentBPM = val; updateBPMUI(); sendCommand(`<BPM:${currentBPM}>`); }
+        }
+
+        function handleEnter(e) { if (e.key === "Enter") applyManualBPM(); }
+
+        function tapTempo() {
+            if(document.getElementById('mode-toggle').checked) {
+                document.getElementById('mode-toggle').checked = false;
+                toggleMode();
+            }
+            const now = Date.now();
+            tapTimes.push(now);
+            if(tapTimes.length > 4) tapTimes.shift(); 
+            if(tapTimes.length > 1) {
+                let diffs =[];
+                for(let i=1; i<tapTimes.length; i++) diffs.push(tapTimes[i] - tapTimes[i-1]);
+                currentBPM = Math.round(60000 / (diffs.reduce((a, b) => a + b) / diffs.length));
+                if(currentBPM > 250) currentBPM = 250;
+                if(currentBPM < 30) currentBPM = 30;
+                updateBPMUI(); sendCommand(`<BPM:${currentBPM}>`);
+            }
+        }
+
+        async function sendCommand(cmdStr) {
+            try {
+                await fetch('/send_command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: cmdStr }) });
+            } catch (err) { console.log("Lỗi gửi lệnh", err); }
+        }
+
+        function sendConfig() { sendCommand(`<BEAT:${document.getElementById('beat-select').value}>`); }
+        
+        function sendStart() { 
+            audioPreview.pause();
+            previewBtn.innerText = '▶';
+            sendConfig(); 
+            sendCommand('<START>'); 
+        }
+
+        updateBPMUI();
+    </script>
+</body>
+</html>
