@@ -98,6 +98,23 @@ def ping_esp():
         return jsonify({'status': 'connected', 'ping': latency})
     except Exception:
         return jsonify({'status': 'disconnected', 'ping': 999}), 503
+import time # Nhớ thêm import time ở đầu file cùng với các thư viện khác nhé
 
+@app.route('/ping_esp', methods=['GET'])
+def ping_esp():
+    # Kiểm tra kết nối từ Server Web đến Adafruit IO
+    url = f"https://io.adafruit.com/api/v2/{AIO_USERNAME}/feeds/{FEED_NAME}"
+    headers = {"X-AIO-Key": AIO_KEY}
+    try:
+        start_time = time.time()
+        response = requests.get(url, headers=headers, timeout=3)
+        ping = round((time.time() - start_time) * 1000)
+        
+        if response.status_code == 200:
+            return jsonify({'status': 'connected', 'ping': ping})
+        else:
+            return jsonify({'status': 'disconnected'}), 500
+    except Exception as e:
+        return jsonify({'status': 'disconnected'}), 500
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
