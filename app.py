@@ -14,8 +14,8 @@ SPOTIPY_CLIENT_SECRET = 'f075c4a3064e4a749bd2dfec07503ef0'
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET))
 
 # --- CẤU HÌNH ADAFRUIT IO ---
-AIO_USERNAME = "Ktey"
-AIO_KEY = "aio_mrUb71sUrYqIEeC8wPH7CuVjqkCc"
+AIO_USERNAME = "ktey"
+AIO_KEY = "aio_voJM57cMWHbNMiNHjaQLap88Ya5i"
 FEED_NAME = "bpm-control"
 
 @app.route('/')
